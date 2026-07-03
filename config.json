@@ -1,0 +1,36 @@
+{
+  "profit_target_pct": 3.0,
+  "loss_trigger_pct": 3.0,
+  "average_fraction": 0.30,
+  "max_averages": 5,
+  "default_investment": 30000,
+  "max_hold_days": 7,
+  "one_buy_per_day": true,
+  "min_buy_score": 62,
+  "top_research_picks": 5,
+  "news_weight": 0.15,
+  "news_max_age_hours": 48,
+  "telegram_path": "D:\\BINAY-Projects\\09-Telegram-Agent",
+  "ai_tools_path": "D:\\BINAY-Projects\\01-GLM-AI-Tools",
+  "ai_enabled": true,
+  "report_time": "08:40",
+  "stock_scan_limit": 50,
+  "digest": {
+    "send_ai_news": true,
+    "send_etf_signals": true,
+    "max_news_items": 5,
+    "etf_agent_path": "D:\\BINAY-Projects\\06-ETF-Agent",
+    "ai_news_sources": [
+      {"name": "Google AI News", "url": "https://news.google.com/rss/search?q=artificial+intelligence+AI&hl=en-IN&gl=IN&ceid=IN:en"},
+      {"name": "TechCrunch AI", "url": "https://techcrunch.com/category/artificial-intelligence/feed/"}
+    ]
+  },
+  "news_sources": [
+    {"name": "Moneycontrol Markets", "url": "https://www.moneycontrol.com/rss/marketreports.xml"},
+    {"name": "Economic Times Markets", "url": "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms"},
+    {"name": "Livemint Markets", "url": "https://www.livemint.com/rss/markets"},
+    {"name": "Business Standard Markets", "url": "https://www.business-standard.com/rss/markets-106.rss"},
+    {"name": "Reuters India Business", "url": "https://feeds.reuters.com/reuters/INbusinessNews"},
+    {"name": "Google News India Markets", "url": "https://news.google.com/rss/search?q=Nifty+50+stock+market+India&hl=en-IN&gl=IN&ceid=IN:en"}
+  ]
+}

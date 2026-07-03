@@ -1,0 +1,24 @@
+# Render.com free deploy — no credit card required
+# Connect repo at https://dashboard.render.com → New → Blueprint
+
+services:
+  - type: web
+    name: stock-analyst-web
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn webapp.app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1 --threads 2
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: GITHUB_REPO
+        value: binaykumarjaiswal-ved/stock-analyst-web
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: AI_ENABLED
+        value: "true"
+      - key: STOCK_SCAN_LIMIT
+        value: "50"

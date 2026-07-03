@@ -1,0 +1,10 @@
+secrets.env
+__pycache__/
+*.pyc
+data/cache/
+data/reports/
+data/last_alert.json
+data/telegram_offset.json
+data/trades_log.json
+.env
+render-api-key.txt
