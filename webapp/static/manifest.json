@@ -1,7 +1,7 @@
 {
   "name": "Stock Analyst AI",
   "short_name": "Stock Analyst",
-  "description": "AI swing trading analysis — Nifty 50 + Next 50",
+  "description": "Level 2/3 AI swing analysis — Nifty 100, PE, S/R, Groq",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b1220",

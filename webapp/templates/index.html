@@ -16,7 +16,7 @@
       <h1>Stock Analyst AI</h1>
       <button type="button" class="icon-btn" id="btn-refresh" title="Refresh">↻</button>
     </div>
-    <p class="subtitle">Nifty 50 + Next 50 · 3% swing · Real analysis</p>
+    <p class="subtitle">Nifty 100 scan · Sector filter · PE + S/R · Groq AI</p>
     <div class="market-pill" id="market-pill">Loading market…</div>
     <div class="scan-banner hidden" id="scan-banner"></div>
   </header>
@@ -38,6 +38,7 @@
         <div>
           <span class="symbol-big" id="res-symbol">—</span>
           <span class="index-tag" id="res-index"></span>
+          <span class="sector-tag hidden" id="res-sector"></span>
         </div>
         <span class="signal-badge" id="res-signal">—</span>
       </div>
@@ -55,6 +56,9 @@
         <div class="stat"><span class="stat-label">Buy qty</span><span class="stat-val" id="res-qty">—</span></div>
       </div>
 
+      <div class="fund-block hidden" id="res-fund"></div>
+      <div class="levels-block hidden" id="res-levels"></div>
+
       <div class="reasons" id="res-reasons"></div>
       <div class="news-block hidden" id="res-news"></div>
       <div class="ai-block hidden" id="res-ai"></div>
@@ -68,7 +72,7 @@
 
     <div class="loading hidden" id="loading">
       <div class="spinner"></div>
-      <p>Running real analysis…</p>
+      <p>Running Level 2 analysis (PE + S/R + Groq)…</p>
     </div>
 
     <!-- Open position -->

@@ -1,4 +1,4 @@
-"""AI brief for daily stock signal."""
+"""AI analyst — Groq brain, Level 2/3 reports with checklist."""
 
 from __future__ import annotations
 
@@ -10,6 +10,9 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).parent
 CONFIG = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
+
+AI_MODEL = CONFIG.get("ai_model", "llama-3.3-70b-versatile")
+AI_MAX_TOKENS = CONFIG.get("ai_max_tokens", 1500)
 
 
 def load_ai_keys() -> bool:
@@ -34,17 +37,15 @@ def load_ai_keys() -> bool:
             text=True,
         )
         keys = json.loads(result.stdout.strip())
-        loaded = 0
         for name, value in keys.items():
             if value:
                 os.environ[name] = value
-                loaded += 1
-        return loaded > 0
+        return bool(keys)
     except (subprocess.CalledProcessError, json.JSONDecodeError):
         return False
 
 
-def _ask_groq_cloud(prompt: str) -> str:
+def _ask_groq_cloud(prompt: str, max_tokens: int | None = None) -> str:
     import requests
 
     key = os.environ.get("GROQ_API_KEY", "")
@@ -55,22 +56,50 @@ def _ask_groq_cloud(prompt: str) -> str:
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
             json={
-                "model": "llama-3.1-8b-instant",
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 400,
-                "temperature": 0.4,
+                "model": AI_MODEL,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a SEBI-aware Indian equity research analyst. "
+                            "Be structured, data-driven, honest about risks. "
+                            "Never guarantee returns. Use Rs. for prices."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                "max_tokens": max_tokens or AI_MAX_TOKENS,
+                "temperature": 0.35,
             },
-            timeout=45,
+            timeout=90,
         )
         r.raise_for_status()
         return r.json()["choices"][0]["message"]["content"].strip()
     except Exception:
+        # Fallback to faster model
+        if AI_MODEL != "llama-3.1-8b-instant":
+            try:
+                r = requests.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                    json={
+                        "model": "llama-3.1-8b-instant",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "max_tokens": min(800, max_tokens or 800),
+                        "temperature": 0.4,
+                    },
+                    timeout=60,
+                )
+                r.raise_for_status()
+                return r.json()["choices"][0]["message"]["content"].strip()
+            except Exception:
+                return ""
         return ""
 
 
-def _ask(prompt: str) -> str:
+def _ask(prompt: str, max_tokens: int | None = None) -> str:
     if os.environ.get("GROQ_API_KEY"):
-        text = _ask_groq_cloud(prompt)
+        text = _ask_groq_cloud(prompt, max_tokens)
         if text:
             return text
     ai_tools = Path(CONFIG.get("ai_tools_path", r"D:\BINAY-Projects\01-GLM-AI-Tools"))
@@ -85,39 +114,63 @@ def _ask(prompt: str) -> str:
         return ""
 
 
+def _pick_context(p: dict) -> str:
+    lines = [
+        f"{p['symbol']} ({p.get('sector', '?')} sector) — {p.get('signal')} score {p.get('swing_score')}",
+        f"  Price Rs.{p.get('price', 0):.2f} | Target +3% Rs.{p.get('target', 0):.2f}",
+        f"  RSI {p.get('rsi')} | Trend {p.get('trend')} | vs Nifty {p.get('vs_nifty_20d', 0):+.1f}%",
+        f"  PE {p.get('pe_trailing', '—')} | EPS growth {p.get('eps_growth_pct', '—')}% | "
+        f"Revenue growth {p.get('revenue_growth_pct', '—')}%",
+        f"  Fundamentals: {p.get('fund_verdict', '—')} | Quarter: {p.get('quarter_trend', '—')}",
+        f"  Support Rs.{p.get('support', '—')} | Resistance Rs.{p.get('resistance', '—')} | {p.get('level_note', '')}",
+        f"  News: {p.get('news_summary', '')[:100]}",
+    ]
+    return "\n".join(lines)
+
+
 def generate_morning_briefing(
     picks: list[dict],
     market_headlines: list[dict],
     benchmark: dict,
+    sector_report: str = "",
 ) -> str:
     if not CONFIG.get("ai_enabled", True):
         return ""
     if not load_ai_keys():
         return ""
 
-    pick_lines = []
-    for p in picks[:5]:
-        pick_lines.append(
-            f"- {p['symbol']}: score {p.get('swing_score')}, signal {p.get('signal')}, "
-            f"RSI {p.get('rsi')}, news: {p.get('news_summary', '')[:80]}"
-        )
-    headlines = "\n".join(f"- {h['title'][:80]}" for h in market_headlines[:8])
+    pick_blocks = "\n\n".join(_pick_context(p) for p in picks[:5])
+    headlines = "\n".join(f"- {h['title'][:90]}" for h in market_headlines[:8])
 
-    prompt = f"""Indian stock swing analyst. Morning briefing max 250 words.
+    prompt = f"""Indian Nifty swing research — full morning decision report (500-700 words).
 
-Strategy: 3% profit delivery swing, Rs.30,000 per trade, Nifty 50 + Next 50 only.
-Market: {benchmark.get('mood')} mood, Nifty 20d {benchmark.get('change_20d', 0):+.1f}%
+STRATEGY: Delivery swing, +3% profit target, Rs.30,000/trade, max 5 averages on -3%.
+UNIVERSE: Nifty 50 + Next 50 | Scan: 100 stocks | Sector filter: top 5 strong sectors only.
 
-Top research picks:
-{chr(10).join(pick_lines)}
+MARKET: {benchmark.get('mood')} | Nifty 20d {benchmark.get('change_20d', 0):+.1f}%
 
-Market headlines:
+{sector_report}
+
+TOP 5 PICKS (technical + PE + quarterly + support/resistance):
+{pick_blocks}
+
+HEADLINES:
 {headlines}
 
-Include: market mood, top 2-3 pick highlights, key risks, end with not SEBI advice."""
+Write structured report with these EXACT sections:
 
-    text = _ask(prompt)
-    return f"[AI Morning Brief]\n{text}" if text else ""
+1. MARKET VERDICT (2-3 lines)
+2. STRONG SECTORS TODAY (bullet list)
+3. TOP 3 STOCK PICKS — for each: Why buy, PE/earnings view, support/resistance, 3% target logic
+4. RISKS (bullet list — market, sector, stock-specific)
+5. DECISION CHECKLIST (numbered yes/no items trader should verify before buying)
+6. FINAL RECOMMENDATION — best 1 stock for today or "No buy — wait"
+
+End: "Not SEBI-registered advice. Trade at your own risk."
+"""
+
+    text = _ask(prompt, max_tokens=1500)
+    return f"[AI Research — Groq {AI_MODEL}]\n{text}" if text else ""
 
 
 def analyze_buy(pick: dict, benchmark: dict) -> str:
@@ -126,22 +179,30 @@ def analyze_buy(pick: dict, benchmark: dict) -> str:
     if not load_ai_keys():
         return ""
 
-    reasons = "; ".join(pick.get("reasons", [])[:3])
-    prompt = f"""You are an Indian swing trading analyst. Write 3-4 short sentences (max 80 words).
+    prompt = f"""Analyze this stock for a 3% delivery swing (max 7 days). Use all data below.
 
-Strategy: delivery swing, sell at +3% profit within 1 week. On -3% loss, average 30% more (max 5 times).
+MARKET: {benchmark.get('mood')} Nifty 20d {benchmark.get('change_20d', 0):+.1f}%
 
-Market: Nifty mood {benchmark.get('mood', 'NEUTRAL')}, 20d {benchmark.get('change_20d', 0):+.1f}%
+STOCK DATA:
+{_pick_context(pick)}
+TA reasons: {', '.join(pick.get('reasons', [])[:4])}
 
-Today's BUY pick: {pick['symbol']} ({pick.get('index_group', '')})
-Score {pick.get('swing_score', 0)}, RSI {pick.get('rsi')}, trend {pick.get('trend')}
-Entry Rs.{pick.get('entry', 0):.2f}, target Rs.{pick.get('target', 0):.2f}
-Reasons: {reasons}
-News: {pick.get('news_summary', 'No recent news')}
+Write:
+A) VERDICT: BUY / WATCH / AVOID (one word + 1 line why)
+B) FUNDAMENTAL VIEW (PE, earnings trend — 2 lines)
+C) TECHNICAL VIEW (RSI, MACD, S/R — 2 lines)
+D) ENTRY PLAN: buy zone, target Rs.{pick.get('target', 0):.2f}, stop/average trigger
+E) TOP 3 RISKS
+F) CHECKLIST: 5 yes/no questions before buying
 
-Explain why this stock fits a 3% swing in ~5-7 days. One risk line. No fluff."""
+Max 350 words. Not SEBI advice."""
 
-    return _ask(prompt)
+    return _ask(prompt, max_tokens=900)
+
+
+def analyze_symbol_deep(pick: dict, benchmark: dict) -> str:
+    """Full Groq analysis for mobile search."""
+    return analyze_buy(pick, benchmark)
 
 
 def analyze_position(signal: dict, symbol: str) -> str:
@@ -150,13 +211,13 @@ def analyze_position(signal: dict, symbol: str) -> str:
     if not load_ai_keys():
         return ""
 
-    prompt = f"""Indian swing trader. 3 sentences max.
+    prompt = f"""Open swing position review for {symbol}.
 
-Open position: {symbol}
 Signal: {signal['signal']}
-LTP Rs.{signal.get('ltp', 0):.2f}, avg Rs.{signal.get('avg_price', 0):.2f}, P&L {signal.get('pnl_pct', 0):+.2f}%
+LTP Rs.{signal.get('ltp', 0):.2f} | Avg Rs.{signal.get('avg_price', 0):.2f} | P&L {signal.get('pnl_pct', 0):+.2f}%
 Reason: {signal.get('reason', '')}
 
-Brief action advice for today. Not SEBI advice."""
+Give: ACTION (Hold/Sell/Average), 2-line rationale, 2 risks, 3-item checklist.
+Not SEBI advice."""
 
-    return _ask(prompt)
+    return _ask(prompt, max_tokens=500)

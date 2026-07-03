@@ -63,11 +63,14 @@ def run_morning_research(cfg: dict, benchmark: dict) -> tuple[list, list, dict, 
         r for r in all_scored if r.get("signal") in ("BUY", "STRONG BUY", "WATCH")
     ][:top_n]
 
+    from sector_strength import format_sector_report
+    sector_report = format_sector_report(cfg.get("sector_top_n", 5) + 3)
+
     ai_summary = ""
     if cfg.get("ai_enabled", True):
         from ai_analyst import generate_morning_briefing
         ai_summary = generate_morning_briefing(
-            research_picks, news["market_headlines"], benchmark
+            research_picks, news["market_headlines"], benchmark, sector_report
         )
 
     from morning_report import save_morning_report
@@ -79,6 +82,7 @@ def run_morning_research(cfg: dict, benchmark: dict) -> tuple[list, list, dict, 
         news["market_headlines"],
         ai_summary,
         universe.get("source", "Nifty 50 + Next 50"),
+        sector_report=sector_report,
     )
     print(f"  Research saved: {txt_path}")
     return all_scored, research_picks, news, ai_summary

@@ -34,7 +34,7 @@ function renderScanBanner(scan) {
   }
   el.classList.remove("hidden", "ready", "error");
   if (scan.scan_running || (scan.today_ready === false && scan.scan_message && scan.scan_message.includes("started"))) {
-    el.textContent = "Preparing today's report on cloud… (~3–5 min). Page will refresh automatically.";
+    el.textContent = "Preparing today's Level 2/3 report on cloud… (~8–12 min, 100 stocks). Page will refresh automatically.";
     startScanPoll();
     return;
   }
@@ -119,18 +119,21 @@ function renderPicks(picks, date) {
     return;
   }
 
-  list.innerHTML = picks.map((p) => `
+  list.innerHTML = picks.map((p) => {
+    const sector = p.sector ? ` · ${p.sector}` : "";
+    const pe = p.pe != null ? ` · PE ${p.pe}` : "";
+    return `
     <div class="pick-item" data-symbol="${p.symbol}">
       <div class="pick-left">
         <strong>${p.symbol}</strong>
-        <span>${p.index_group} · ${p.signal}</span>
+        <span>${p.index_group}${sector} · ${p.signal}${pe}</span>
       </div>
       <div class="pick-right">
         <div class="pick-score">${p.score}/100</div>
         <div>${fmtRs(p.price)}</div>
       </div>
-    </div>
-  `).join("");
+    </div>`;
+  }).join("");
 
   list.querySelectorAll(".pick-item").forEach((el) => {
     el.addEventListener("click", () => {
@@ -149,6 +152,15 @@ function renderResult(data) {
 
   $("res-symbol").textContent = data.symbol;
   $("res-index").textContent = data.index_group || "";
+  const sectorEl = $("res-sector");
+  if (data.sector) {
+    sectorEl.classList.remove("hidden");
+    const strong = data.sector_strong !== false;
+    sectorEl.textContent = strong ? `${data.sector} · Strong sector` : `${data.sector} · Weak sector`;
+    sectorEl.className = "sector-tag " + (strong ? "strong" : "weak");
+  } else {
+    sectorEl.classList.add("hidden");
+  }
   const sigEl = $("res-signal");
   sigEl.textContent = data.signal;
   sigEl.className = "signal-badge " + signalClass(data.signal);
@@ -165,9 +177,42 @@ function renderResult(data) {
   $("res-vs-nifty").textContent = vn != null ? `${vn >= 0 ? "+" : ""}${vn}%` : "—";
   $("res-qty").textContent = data.buy_qty ? `${data.buy_qty} @ ${fmtRs(data.buy_amount)}` : "—";
 
+  const fundEl = $("res-fund");
+  const hasFund = data.pe_trailing || data.fund_verdict || data.eps_growth_pct != null;
+  if (hasFund) {
+    fundEl.classList.remove("hidden");
+    const eps = data.eps_growth_pct != null ? `${data.eps_growth_pct >= 0 ? "+" : ""}${data.eps_growth_pct}%` : "—";
+    const rev = data.revenue_growth_pct != null ? `${data.revenue_growth_pct >= 0 ? "+" : ""}${data.revenue_growth_pct}%` : "—";
+    fundEl.innerHTML = `<strong>Fundamentals</strong>
+      <div class="stats-grid compact">
+        <div class="stat"><span class="stat-label">PE</span><span class="stat-val">${data.pe_trailing ?? "—"}</span></div>
+        <div class="stat"><span class="stat-label">EPS growth</span><span class="stat-val">${eps}</span></div>
+        <div class="stat"><span class="stat-label">Revenue</span><span class="stat-val">${rev}</span></div>
+        <div class="stat"><span class="stat-label">Quarter</span><span class="stat-val">${data.quarter_trend ?? "—"}</span></div>
+      </div>
+      <p class="muted small">${data.fund_verdict || ""}</p>`;
+  } else {
+    fundEl.classList.add("hidden");
+  }
+
+  const levelsEl = $("res-levels");
+  if (data.support || data.resistance) {
+    levelsEl.classList.remove("hidden");
+    levelsEl.innerHTML = `<strong>Support / Resistance</strong>
+      <div class="stats-grid compact">
+        <div class="stat"><span class="stat-label">Support</span><span class="stat-val green">${fmtRs(data.support)}</span></div>
+        <div class="stat"><span class="stat-label">Resistance</span><span class="stat-val">${fmtRs(data.resistance)}</span></div>
+        <div class="stat"><span class="stat-label">Pivot S1</span><span class="stat-val">${fmtRs(data.pivot_s1)}</span></div>
+        <div class="stat"><span class="stat-label">Pivot R1</span><span class="stat-val">${fmtRs(data.pivot_r1)}</span></div>
+      </div>
+      <p class="muted small">${data.level_note || ""}</p>`;
+  } else {
+    levelsEl.classList.add("hidden");
+  }
+
   const reasons = data.reasons || [];
   $("res-reasons").innerHTML = reasons.length
-    ? "<ul>" + reasons.map((r) => `<li>${r}</li>`).join("") + "</ul>"
+    ? "<strong>Technical</strong><ul>" + reasons.map((r) => `<li>${r}</li>`).join("") + "</ul>"
     : "";
 
   const newsEl = $("res-news");
@@ -185,7 +230,7 @@ function renderResult(data) {
   const aiEl = $("res-ai");
   if (data.ai_note) {
     aiEl.classList.remove("hidden");
-    aiEl.innerHTML = `<strong>AI Analyst</strong><p>${data.ai_note}</p>`;
+    aiEl.innerHTML = `<strong>Groq AI — Verdict + Risks + Checklist</strong><pre class="ai-text">${data.ai_note}</pre>`;
   } else {
     aiEl.classList.add("hidden");
   }

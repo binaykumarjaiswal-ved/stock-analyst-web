@@ -204,6 +204,18 @@ input:focus {
   color: var(--muted);
 }
 
+.sector-tag {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.sector-tag.strong { background: #14532d; color: #86efac; }
+.sector-tag.weak { background: #422006; color: #fcd34d; }
+
 .signal-badge {
   padding: 0.35rem 0.6rem;
   border-radius: 8px;
@@ -274,7 +286,7 @@ input:focus {
 
 .reasons li { margin-left: 1.1rem; }
 
-.news-block, .ai-block {
+.fund-block, .levels-block, .news-block, .ai-block {
   background: var(--bg);
   border-radius: 10px;
   padding: 0.75rem;
@@ -282,7 +294,21 @@ input:focus {
   font-size: 0.85rem;
 }
 
+.stats-grid.compact { margin-top: 0.5rem; margin-bottom: 0.35rem; }
+.stats-grid.compact .stat { padding: 0.45rem 0.55rem; }
+.stats-grid.compact .stat-val { font-size: 0.9rem; }
+
 .ai-block { border-left: 3px solid var(--primary); }
+
+.ai-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  margin-top: 0.5rem;
+  color: var(--text);
+}
 
 .action-row {
   display: flex;

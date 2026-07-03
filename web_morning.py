@@ -73,7 +73,7 @@ def get_scan_status() -> dict:
 
 
 def _run_scan_sync() -> bool:
-    """Full morning research on Render (3–6 min)."""
+    """Full morning research on Render (8–12 min, 100 stocks + deep enrich)."""
     from run_cloud_job import get_benchmark, load_config, run_morning_research
 
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)

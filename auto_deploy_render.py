@@ -89,7 +89,7 @@ def create_service(api_key: str, owner_id: str) -> dict:
             "region": "oregon",
             "envSpecificDetails": {
                 "buildCommand": "pip install -r requirements.txt",
-                "startCommand": "gunicorn webapp.app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1 --threads 2",
+                "startCommand": "gunicorn webapp.app:app --bind 0.0.0.0:$PORT --timeout 900 --workers 1 --threads 2",
             },
             "healthCheckPath": "/api/health",
         },
@@ -173,7 +173,7 @@ def main() -> int:
         "GROQ_API_KEY": groq,
         "AI_ENABLED": "true",
         "PYTHON_VERSION": "3.11.9",
-        "STOCK_SCAN_LIMIT": "50",
+        "STOCK_SCAN_LIMIT": "100",
         "CRON_SECRET": cron_secret,
     })
 

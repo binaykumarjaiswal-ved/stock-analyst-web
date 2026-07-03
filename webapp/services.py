@@ -49,16 +49,26 @@ def _parse_top_picks(text: str) -> list[dict]:
         m = re.match(r"#(\d+)\s+(\w+)\s+\(([^)]+)\)\s+—\s+Rs\.([\d.]+)", block)
         if not m:
             continue
+        meta = [p.strip() for p in m.group(3).split("|")]
+        index_group = meta[0] if meta else m.group(3)
+        sector = meta[1] if len(meta) > 1 else ""
         signal_m = re.search(r"Signal:\s+(\S+(?:\s+\S+)?)\s+\|\s+Score:\s+(\d+)/100", block)
         target_m = re.search(r"Target \+3%:\s+Rs\.([\d.]+)", block)
+        pe_m = re.search(r"PE\s+([\d.]+|—)", block)
+        sr_m = re.search(r"Support Rs\.([\d.]+|—)\s+\|\s+Resistance Rs\.([\d.]+|—)", block)
+        pe_raw = pe_m.group(1) if pe_m else "—"
         picks.append({
             "rank": int(m.group(1)),
             "symbol": m.group(2),
-            "index_group": m.group(3),
+            "index_group": index_group,
+            "sector": sector,
             "price": float(m.group(4)),
             "signal": signal_m.group(1) if signal_m else "—",
             "score": int(signal_m.group(2)) if signal_m else 0,
             "target": float(target_m.group(1)) if target_m else 0,
+            "pe": float(pe_raw) if pe_raw != "—" else None,
+            "support": float(sr_m.group(1)) if sr_m and sr_m.group(1) != "—" else None,
+            "resistance": float(sr_m.group(2)) if sr_m and sr_m.group(2) != "—" else None,
         })
     return picks[: CONFIG.get("top_research_picks", 5)]
 
@@ -155,10 +165,12 @@ def cron_morning_scan(secret: str) -> dict:
 
 
 def analyze_symbol(symbol: str, with_ai: bool = True) -> dict:
-    from ai_analyst import analyze_buy
+    from ai_analyst import analyze_symbol_deep
     from news_fetcher import fetch_news
     from nse_data import nse_quote
-    from scanner import _apply_news_score
+    from scanner import _apply_news_score, enrich_deep
+    from sector_map import get_sector
+    from sector_strength import sector_filter_pass
     from stock_universe import get_universe
     from strategy import enrich_pick_with_order
     from technical import analyze_technicals, fetch_ohlcv
@@ -229,9 +241,31 @@ def analyze_symbol(symbol: str, with_ai: bool = True) -> dict:
         "market_mood": _benchmark(),
     }
 
+    enrich_deep(result)
+    top_n = CONFIG.get("sector_top_n", 5)
+    if CONFIG.get("sector_filter_enabled", True):
+        ok, sector = sector_filter_pass(symbol, top_n)
+        result["sector"] = sector
+        result["sector_strong"] = ok
+        if not ok:
+            result["swing_score"] = max(0, result["swing_score"] - 10)
+    else:
+        result["sector"] = get_sector(symbol)
+        result["sector_strong"] = True
+
+    s = result["swing_score"]
+    if s >= 75:
+        result["signal"] = "STRONG BUY"
+    elif s >= min_score:
+        result["signal"] = "BUY"
+    elif s >= 50:
+        result["signal"] = "WATCH"
+    else:
+        result["signal"] = "AVOID"
+
     ai_note = ""
-    if with_ai and CONFIG.get("ai_enabled", True) and signal in ("BUY", "STRONG BUY", "WATCH"):
-        ai_note = analyze_buy(result, result["market_mood"])
+    if with_ai and CONFIG.get("ai_enabled", True):
+        ai_note = analyze_symbol_deep(result, result["market_mood"])
     result["ai_note"] = ai_note
     result["ok"] = True
     result["analyzed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M IST")
@@ -242,18 +276,27 @@ def format_share_text(data: dict) -> str:
     if not data.get("ok"):
         return data.get("error", "Analysis failed")
 
+    sector = data.get("sector", "")
+    sector_tag = f" | {sector}" if sector else ""
     lines = [
-        f"Stock Analyst AI — {data['symbol']}",
+        f"Stock Analyst AI — {data['symbol']}{sector_tag}",
         f"Signal: {data['signal']} | Score: {data['swing_score']}/100",
         f"Price: Rs.{data.get('price', 0):.2f} | Target +3%: Rs.{data.get('target', 0):.2f}",
         f"RSI {data.get('rsi')} | Trend {data.get('trend')} | vs Nifty {data.get('vs_nifty_20d', 0):+.1f}%",
     ]
+    pe = data.get("pe_trailing")
+    if pe:
+        lines.append(f"PE {pe} | {data.get('fund_verdict', '')} | Quarter: {data.get('quarter_trend', '—')}")
+    sup = data.get("support")
+    res = data.get("resistance")
+    if sup or res:
+        lines.append(f"Support Rs.{sup or '—'} | Resistance Rs.{res or '—'}")
     if data.get("reasons"):
         lines.append("TA: " + ", ".join(data["reasons"][:3]))
     if data.get("news_summary"):
         lines.append(f"News: {data['news_summary'][:100]}")
     if data.get("ai_note"):
-        lines.append(f"AI: {data['ai_note'][:200]}")
+        lines.append(f"AI:\n{data['ai_note'][:800]}")
     lines.append("— Not SEBI advice. Trade at your own risk.")
     return "\n".join(lines)
 

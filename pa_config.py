@@ -26,7 +26,7 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-STOCK_SCAN_LIMIT = int(os.environ.get("STOCK_SCAN_LIMIT", "50"))
+STOCK_SCAN_LIMIT = int(os.environ.get("STOCK_SCAN_LIMIT", "100"))
 CHECK_INTERVAL_MIN = int(os.environ.get("CHECK_INTERVAL_MIN", "10"))
 AI_ENABLED = os.environ.get("AI_ENABLED", "true").lower() in ("1", "true", "yes")
 

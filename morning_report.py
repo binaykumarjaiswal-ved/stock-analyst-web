@@ -20,11 +20,16 @@ def _desktop_dir() -> Path:
 
 def _format_pick(rank: int, p: dict) -> list[str]:
     best = p.get("best_buy_price", p.get("entry", p.get("price", 0)))
+    pe = p.get("pe_trailing") or "—"
+    eps = p.get("eps_growth_pct")
+    eps_s = f"{eps:+.1f}%" if eps is not None else "—"
     lines = [
-        f"#{rank}  {p['symbol']}  ({p.get('index_group', 'Nifty')})  —  Rs.{p.get('price', 0):.2f}",
+        f"#{rank}  {p['symbol']}  ({p.get('index_group', 'Nifty')} | {p.get('sector', '?')})  —  Rs.{p.get('price', 0):.2f}",
         f"     Signal: {p.get('signal', 'WATCH')}  |  Score: {p.get('swing_score', 0):.0f}/100",
         f"     Best buy: Rs.{best:.2f}  |  Qty: {p.get('buy_qty', 0)}  |  Target +3%: Rs.{p.get('target', 0):.2f}",
         f"     Technical: RSI {p.get('rsi', 0)} | Trend {p.get('trend', '?')} | vs Nifty {p.get('vs_nifty_20d', 0):+.1f}%",
+        f"     Fundamentals: PE {pe} | EPS growth {eps_s} | {p.get('fund_verdict', '—')}",
+        f"     Support Rs.{p.get('support', '—')} | Resistance Rs.{p.get('resistance', '—')} | {p.get('level_note', '')[:80]}",
     ]
     if p.get("reasons"):
         lines.append(f"     TA: {', '.join(p['reasons'][:3])}")
@@ -41,6 +46,7 @@ def save_morning_report(
     market_headlines: list[dict],
     ai_summary: str,
     universe_source: str,
+    sector_report: str = "",
 ) -> tuple[Path, Path]:
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     now = datetime.now()
@@ -49,14 +55,19 @@ def save_morning_report(
 
     lines = [
         "=" * 65,
-        f"  STOCK ANALYST — MORNING RESEARCH — {time_str}",
-        "  Nifty 50 + Nifty Next 50 | 3% swing strategy",
+        f"  STOCK ANALYST — LEVEL 2/3 RESEARCH — {time_str}",
+        "  Nifty 100 scan | Sector filter | PE + S/R + Groq AI",
         "=" * 65,
         f"Market mood: {benchmark.get('mood', 'NEUTRAL')} (Nifty 20d: {benchmark.get('change_20d', 0):+.1f}%)",
         f"Stocks scanned: {len(all_scored)} | News items: {news_stats.get('total', 0)} | Universe: {universe_source}",
         "",
-        "── TOP RESEARCH PICKS (3% swing) ──",
     ]
+
+    if sector_report:
+        lines.append(sector_report)
+        lines.append("")
+
+    lines.append("── TOP RESEARCH PICKS (3% swing) ──")
 
     if picks:
         for i, p in enumerate(picks, 1):
