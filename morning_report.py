@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import Any
 
 BASE_DIR = Path(__file__).parent
-REPORTS_DIR = BASE_DIR / "reports"
+REPORTS_DIR = BASE_DIR / "data" / "reports"
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _desktop_dir() -> Path:

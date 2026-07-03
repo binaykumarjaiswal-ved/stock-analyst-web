@@ -66,6 +66,18 @@ body {
 .market-pill.bearish { color: var(--red); border-color: #991b1b; }
 .market-pill.neutral { color: var(--amber); }
 
+.scan-banner {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  background: #1e3a5f;
+  border: 1px solid #2563eb;
+  color: #93c5fd;
+}
+.scan-banner.ready { background: #14532d; border-color: #166534; color: #86efac; }
+.scan-banner.error { background: #3f1515; border-color: #991b1b; color: #fca5a5; }
+
 .main {
   padding: 0.75rem;
   padding-bottom: 2rem;

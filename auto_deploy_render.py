@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import subprocess
 import sys
 import time
@@ -12,7 +13,9 @@ from pathlib import Path
 
 import requests
 
-REPO = "binaykumarjaiswal-ved/stock-analyst-cloud"
+DATA_REPO = "binaykumarjaiswal-ved/stock-analyst-cloud"
+DEPLOY_REPO = "binaykumarjaiswal-ved/stock-analyst-web"
+DEPLOY_BRANCH = "master"
 SERVICE_NAME = "stock-analyst-web"
 RENDER_API = "https://api.render.com/v1"
 
@@ -77,8 +80,8 @@ def create_service(api_key: str, owner_id: str) -> dict:
         "type": "web_service",
         "name": SERVICE_NAME,
         "ownerId": owner_id,
-        "repo": f"https://github.com/{REPO}",
-        "branch": "main",
+        "repo": f"https://github.com/{DEPLOY_REPO}",
+        "branch": DEPLOY_BRANCH,
         "autoDeploy": "yes",
         "serviceDetails": {
             "env": "python",
@@ -94,6 +97,8 @@ def create_service(api_key: str, owner_id: str) -> dict:
     r = requests.post(f"{RENDER_API}/services", headers=_headers(api_key), json=payload, timeout=60)
     if r.status_code == 409:
         return find_service(api_key) or {}
+    if r.status_code >= 400:
+        print(f"  Render error: {r.text[:500]}")
     r.raise_for_status()
     return r.json().get("service", r.json())
 
@@ -117,7 +122,7 @@ def set_github_webapp_secret(url: str) -> None:
     if not url:
         return
     subprocess.run(
-        ["gh", "secret", "set", "WEBAPP_URL", "-R", REPO, "-b", url.rstrip("/")],
+        ["gh", "secret", "set", "WEBAPP_URL", "-R", DATA_REPO, "-b", url.rstrip("/")],
         capture_output=True, text=True, timeout=30,
     )
 
@@ -128,7 +133,10 @@ def main() -> int:
     if not api_key and key_file.exists():
         api_key = key_file.read_text(encoding="utf-8").strip()
     if not api_key:
-        print("ERROR: No Render API key. Save it to render-api-key.txt or set RENDER_API_KEY")
+        print("ERROR: No Render API key.")
+        print("  Save NEW key (one line rnd_...) to:")
+        print(f"  {key_file}")
+        print("  Then run: ROTATE_RENDER_KEY.bat")
         return 1
 
     gh = _gh_token()
@@ -154,15 +162,25 @@ def main() -> int:
         slug = svc.get("slug", SERVICE_NAME)
         url = f"https://{slug}.onrender.com"
 
+    cron_secret = os.environ.get("CRON_SECRET", "").strip()
+    if not cron_secret:
+        cron_secret = secrets.token_urlsafe(24)
+
     print("Setting environment variables...")
     set_env_vars(api_key, service_id, {
-        "GITHUB_REPO": REPO,
+        "GITHUB_REPO": DATA_REPO,
         "GITHUB_TOKEN": gh,
         "GROQ_API_KEY": groq,
         "AI_ENABLED": "true",
         "PYTHON_VERSION": "3.11.9",
         "STOCK_SCAN_LIMIT": "50",
+        "CRON_SECRET": cron_secret,
     })
+
+    subprocess.run(
+        ["gh", "secret", "set", "CRON_SECRET", "-R", DATA_REPO, "-b", cron_secret],
+        capture_output=True, text=True, timeout=30,
+    )
 
     print("Triggering deploy...")
     try:

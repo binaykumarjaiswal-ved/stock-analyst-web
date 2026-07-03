@@ -102,6 +102,28 @@ def pull_state(force: bool = False) -> bool:
     return ok
 
 
+def push_report_files(date_str: str) -> bool:
+    """Upload morning report txt to GitHub data/reports/."""
+    if not _enabled():
+        return False
+    ok = False
+    for name in (f"morning_research_{date_str}.txt", f"signal_{date_str}.txt"):
+        local = REPORTS_DIR / name
+        if not local.exists():
+            alt = BASE_DIR / "reports" / name
+            if alt.exists():
+                local.parent.mkdir(parents=True, exist_ok=True)
+                local.write_text(alt.read_text(encoding="utf-8"), encoding="utf-8")
+        if local.exists():
+            text = local.read_text(encoding="utf-8")
+            if _put_file(f"data/reports/{name}", text, f"render-web: morning report {date_str}"):
+                ok = True
+    if ok:
+        global _last_pull
+        _last_pull = 0.0
+    return ok
+
+
 def push_position(content: str) -> bool:
     """Upload position.json back to GitHub after user confirms trade."""
     if not _enabled():

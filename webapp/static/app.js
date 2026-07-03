@@ -2,6 +2,7 @@ const $ = (id) => document.getElementById(id);
 
 let lastShareText = "";
 let lastResult = null;
+let scanPollTimer = null;
 
 const QUICK = ["TITAN", "RELIANCE", "TCS", "HDFCBANK", "INFY", "BAJFINANCE"];
 
@@ -23,6 +24,51 @@ function signalClass(signal) {
 function fmtRs(n) {
   if (n == null || isNaN(n)) return "—";
   return "Rs." + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+}
+
+function renderScanBanner(scan) {
+  const el = $("scan-banner");
+  if (!scan) {
+    el.classList.add("hidden");
+    return;
+  }
+  el.classList.remove("hidden", "ready", "error");
+  if (scan.scan_running || (scan.today_ready === false && scan.scan_message && scan.scan_message.includes("started"))) {
+    el.textContent = "Preparing today's report on cloud… (~3–5 min). Page will refresh automatically.";
+    startScanPoll();
+    return;
+  }
+  if (scan.today_ready || scan.has_report) {
+    el.classList.add("ready");
+    el.textContent = "Today's research report is ready.";
+    stopScanPoll();
+    return;
+  }
+  if (scan.scan_message) {
+    el.textContent = scan.scan_message;
+  } else {
+    el.classList.add("hidden");
+  }
+}
+
+function startScanPoll() {
+  if (scanPollTimer) return;
+  scanPollTimer = setInterval(async () => {
+    try {
+      const s = await fetch("/api/scan-status").then((r) => r.json());
+      if (s.today_ready && !s.running) {
+        stopScanPoll();
+        loadDashboard();
+      }
+    } catch (e) { /* ignore */ }
+  }, 15000);
+}
+
+function stopScanPoll() {
+  if (scanPollTimer) {
+    clearInterval(scanPollTimer);
+    scanPollTimer = null;
+  }
 }
 
 function renderMarket(benchmark) {
@@ -152,6 +198,7 @@ async function loadDashboard() {
     const res = await fetch("/api/dashboard");
     const data = await res.json();
     renderMarket(data.benchmark);
+    renderScanBanner({ ...data.scan, has_report: data.has_report });
     renderPosition(data.position);
     renderPicks(data.top_picks, data.report_date);
     $("report-preview").textContent = data.report_preview || "No morning report saved yet.";

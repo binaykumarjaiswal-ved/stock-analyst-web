@@ -14,9 +14,11 @@ from flask import Flask, jsonify, render_template, request
 
 from webapp.services import (
     analyze_symbol,
+    cron_morning_scan,
     format_share_text,
     get_dashboard,
     get_report,
+    get_scan_status_api,
     list_reports,
     position_action,
 )
@@ -41,6 +43,17 @@ def api_health():
 @app.route("/api/dashboard")
 def api_dashboard():
     return jsonify(get_dashboard())
+
+
+@app.route("/api/scan-status")
+def api_scan_status():
+    return jsonify(get_scan_status_api())
+
+
+@app.route("/api/cron/morning")
+def api_cron_morning():
+    key = request.args.get("key", "")
+    return jsonify(cron_morning_scan(key))
 
 
 @app.route("/api/analyze/<symbol>")

@@ -65,6 +65,23 @@ def _parse_top_picks(text: str) -> list[dict]:
 
 def get_dashboard() -> dict:
     _sync()
+    scan_info = {"today_ready": False, "scan_running": False, "scan_message": ""}
+    try:
+        from web_morning import get_scan_status, report_exists_for_today, run_morning_if_needed
+
+        if not report_exists_for_today():
+            result = run_morning_if_needed(background=True)
+            scan_info = {
+                "today_ready": report_exists_for_today(),
+                "scan_running": result.get("started") or get_scan_status().get("running"),
+                "scan_message": result.get("message", ""),
+                "scan_source": "render",
+            }
+        else:
+            scan_info = {"today_ready": True, "scan_running": False, "scan_message": "Report ready"}
+    except Exception:
+        pass
+
     from nse_data import nse_quote
     from strategy import CONFIG as STRAT_CFG, evaluate_position, load_position
 
@@ -115,7 +132,26 @@ def get_dashboard() -> dict:
         "report_preview": report_preview,
         "top_picks": top_picks,
         "has_report": bool(report_path),
+        "scan": scan_info,
     }
+
+
+def get_scan_status_api() -> dict:
+    try:
+        from web_morning import get_scan_status, report_exists_for_today
+        return {**get_scan_status(), "today_ready": report_exists_for_today()}
+    except Exception as exc:
+        return {"running": False, "today_ready": False, "last_error": str(exc)}
+
+
+def cron_morning_scan(secret: str) -> dict:
+    import os
+    from web_morning import run_morning_force
+
+    expected = os.environ.get("CRON_SECRET", "").strip()
+    if not expected or secret != expected:
+        return {"ok": False, "error": "Unauthorized"}
+    return {"ok": True, **run_morning_force()}
 
 
 def analyze_symbol(symbol: str, with_ai: bool = True) -> dict:
